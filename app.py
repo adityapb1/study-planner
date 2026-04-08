@@ -58,7 +58,7 @@ for sub, data in st.session_state.subjects.items():
             if key not in st.session_state:
                 st.session_state[key] = False
 
-           cols[i].checkbox(f"Rev {i+1}", key=key)
+        cols[i].checkbox(f"Rev {i+1}", key=key)
 
         rev_count = sum([st.session_state[f"{sub}_{ch}_rev{i}"] for i in range(3)])
 
