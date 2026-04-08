@@ -63,7 +63,7 @@ for sub, data in st.session_state.subjects.items():
 
         col1, col2, col3, col4 = st.columns([3,1,1,1])
 
-        name = col1.text_input("", value=ch_data["name"], key=f"name_{sub}_{ch}")
+        name = col1.text_input("", value=ch_data.get("name", f"Chapter {ch}"), key=f"name_{sub}_{ch}")
         ch_data["name"] = name
 
         rev_count = 0
