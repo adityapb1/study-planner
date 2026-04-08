@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import date, timedelta
 import random
 
-st.set_page_config(page_title="Study Planner Pro Max", layout="wide")
+st.set_page_config(page_title="Study Planner Ultimate", layout="wide")
 
 # ---------------- USER ----------------
 if "user" not in st.session_state:
@@ -19,11 +19,11 @@ if not st.session_state.user:
     st.stop()
 
 # ---------------- DATA ----------------
+if "subjects" not in st.session_state:
+    st.session_state.subjects = {}
+
 if "log" not in st.session_state:
     st.session_state.log = pd.DataFrame(columns=["Date","Subject","Study"])
-
-if "goal" not in st.session_state:
-    st.session_state.goal = 2  # default hours
 
 # ---------------- STREAK ----------------
 def calculate_streak(df):
@@ -45,48 +45,80 @@ def calculate_streak(df):
 
 streak = calculate_streak(st.session_state.log)
 
-# ---------------- BADGE + CONFETTI ----------------
-def get_badge(streak):
-    if streak >= 30:
-        return "🏆 Beast"
-    elif streak >= 14:
-        return "🔥 Warrior"
-    elif streak >= 7:
-        return "⚡ Starter"
-    return None
-
-badge = get_badge(streak)
-
-if badge:
-    st.balloons()
-    st.success(f"🎉 Achievement Unlocked: {badge}")
-
 # ---------------- SIDEBAR ----------------
 st.sidebar.title(f"👋 {st.session_state.user}")
 st.sidebar.markdown(f"🔥 Streak: {streak}")
-st.sidebar.markdown(f"🎯 Daily Goal: {st.session_state.goal} hrs")
 
-# Goal setter
-new_goal = st.sidebar.slider("Set Daily Goal (hrs)", 1, 10, st.session_state.goal)
-st.session_state.goal = new_goal
+# SUBJECT BUTTONS (FIXED)
+st.sidebar.markdown("### 📚 Subjects")
+selected_subject = None
+
+for sub in st.session_state.subjects:
+    if st.sidebar.button(sub):
+        st.session_state.selected = sub
+
+if "selected" in st.session_state:
+    selected_subject = st.session_state.selected
+
+# ADD SUBJECT
+st.sidebar.markdown("---")
+new_sub = st.sidebar.text_input("Add New Subject")
+chapters = st.sidebar.number_input("No. of Chapters", min_value=1)
+
+if st.sidebar.button("➕ Add Subject") and new_sub:
+    st.session_state.subjects[new_sub] = {
+        "total": chapters,
+        "chapters": {i: {"name": f"Chapter {i}"} for i in range(1, chapters+1)}
+    }
+    st.session_state.selected = new_sub
+    st.rerun()
 
 # ---------------- MAIN ----------------
-st.title("📊 Weekly Progress")
+st.title("🚀 Study Planner")
 
-if not st.session_state.log.empty:
-    df = st.session_state.log.copy()
-    df["Date"] = pd.to_datetime(df["Date"])
-    weekly = df.groupby(df["Date"].dt.date).count()
-    st.line_chart(weekly)
+if selected_subject:
+    data = st.session_state.subjects[selected_subject]
+    st.subheader(f"✨ {selected_subject}")
+
+    total_eff = 0
+    completed = 0
+
+    for ch in range(1, data["total"]+1):
+        ch_data = data["chapters"][ch]
+        cols = st.columns([4,1,1,1])
+
+        name = cols[0].text_input("", value=ch_data.get("name", f"Chapter {ch}"), key=f"name_{selected_subject}_{ch}")
+        ch_data["name"] = name
+
+        rev_count = 0
+        for i in range(3):
+            key = f"{selected_subject}_{ch}_rev{i}"
+            if key not in st.session_state:
+                st.session_state[key] = False
+            if cols[i+1].checkbox("", key=key):
+                rev_count += 1
+
+        if rev_count >= 1:
+            completed += 1
+
+        total_eff += (rev_count / 3)
+
+    progress = completed / data["total"]
+    st.progress(progress)
+    st.info(f"📊 Completion: {round(progress*100,1)}%")
+
+    eff = (total_eff / data["total"]) * 100
+    st.success(f"🧠 Understanding: {round(eff,1)}%")
 
 # ---------------- STUDY LOG ----------------
+st.markdown("---")
 st.header("📝 Study Log")
-col1, col2, col3 = st.columns(3)
 
+col1, col2, col3 = st.columns(3)
 with col1:
     d = st.date_input("Date")
 with col2:
-    s = st.text_input("Subject")
+    s = st.selectbox("Subject", list(st.session_state.subjects.keys()) if st.session_state.subjects else [""])
 with col3:
     t = st.text_input("What studied")
 
@@ -97,18 +129,8 @@ if st.button("Add Log"):
 
 st.dataframe(st.session_state.log)
 
-# ---------------- LEADERBOARD (MOCK) ----------------
-st.markdown("---")
-st.header("🏆 Leaderboard (Friends)")
-
-leaderboard = pd.DataFrame({
-    "Name": ["You", "Aman", "Riya"],
-    "Streak": [streak, random.randint(1,20), random.randint(1,20)]
-})
-
-st.dataframe(leaderboard)
-
 # ---------------- RESET ----------------
 if st.button("Reset All"):
     st.session_state.clear()
     st.rerun()
+
