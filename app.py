@@ -70,12 +70,23 @@ if st.sidebar.button("➕ Add Subject") and new_sub:
         "chapters": {i: {"name": f"Chapter {i}"} for i in range(1, chapters+1)}
     }
     st.session_state.selected = new_sub
-
-    # RESET INPUT FIELDS
     st.session_state.sub_input = ""
     st.session_state.chap_input = 1
-
     st.rerun()
+
+# ---------------- HOME PAGE ----------------
+st.markdown(f"# 👋 Welcome back to studies, {st.session_state.user} 🚀")
+
+st.markdown("### 🎯 Select what you're studying today")
+
+if st.session_state.subjects:
+    cols = st.columns(len(st.session_state.subjects))
+    for i, sub in enumerate(st.session_state.subjects):
+        if cols[i].button(f"📘 {sub}"):
+            st.session_state.selected = sub
+            selected_subject = sub
+else:
+    st.info("No subjects added yet. Add from sidebar 👈")
 
 # ---------------- STUDY LOG IN SIDEBAR ----------------
 st.sidebar.markdown("---")
@@ -88,23 +99,20 @@ log_text = st.sidebar.text_input("What studied", key="log_text")
 if st.sidebar.button("Add Log"):
     new = pd.DataFrame([[log_date, log_sub, log_text]], columns=["Date","Subject","Study"])
     st.session_state.log = pd.concat([st.session_state.log,new], ignore_index=True)
-
-    # RESET LOG INPUTS
     st.session_state.log_text = ""
 
-# ---------------- MAIN ----------------
-st.title("🚀 Study Planner")
-
+# ---------------- MAIN SUBJECT VIEW ----------------
 if selected_subject:
+    st.markdown("---")
     data = st.session_state.subjects[selected_subject]
-    st.subheader(f"✨ {selected_subject}")
+    st.subheader(f"📖 {selected_subject}")
 
     total_eff = 0
     completed = 0
 
     for ch in range(1, data["total"]+1):
         ch_data = data["chapters"][ch]
-        cols = st.columns([4,1,1,1])
+        cols = st.columns([5,1,1,1])
 
         name = cols[0].text_input("", value=ch_data.get("name", f"Chapter {ch}"), key=f"name_{selected_subject}_{ch}")
         ch_data["name"] = name
@@ -124,15 +132,15 @@ if selected_subject:
 
     progress = completed / data["total"]
     st.progress(progress)
-    st.info(f"📊 Completion: {round(progress*100,1)}%")
+    st.markdown(f"### 📊 Completion: {round(progress*100,1)}%")
 
     eff = (total_eff / data["total"]) * 100
-    st.success(f"🧠 Understanding: {round(eff,1)}%")
+    st.markdown(f"### 🧠 Understanding: {round(eff,1)}%")
 
 # ---------------- TABLE VIEW ----------------
 st.markdown("---")
 st.header("📊 Study History")
-st.dataframe(st.session_state.log)
+st.dataframe(st.session_state.log, use_container_width=True)
 
 # ---------------- RESET ----------------
 if st.button("Reset All"):
