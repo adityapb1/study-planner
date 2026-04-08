@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
-import random
 
 st.set_page_config(page_title="Study Planner Ultimate", layout="wide")
 
@@ -49,7 +48,7 @@ streak = calculate_streak(st.session_state.log)
 st.sidebar.title(f"👋 {st.session_state.user}")
 st.sidebar.markdown(f"🔥 Streak: {streak}")
 
-# SUBJECT BUTTONS (FIXED)
+# SUBJECT BUTTONS
 st.sidebar.markdown("### 📚 Subjects")
 selected_subject = None
 
@@ -62,8 +61,8 @@ if "selected" in st.session_state:
 
 # ADD SUBJECT
 st.sidebar.markdown("---")
-new_sub = st.sidebar.text_input("Add New Subject")
-chapters = st.sidebar.number_input("No. of Chapters", min_value=1)
+new_sub = st.sidebar.text_input("Add New Subject", key="sub_input")
+chapters = st.sidebar.number_input("No. of Chapters", min_value=1, key="chap_input")
 
 if st.sidebar.button("➕ Add Subject") and new_sub:
     st.session_state.subjects[new_sub] = {
@@ -71,7 +70,27 @@ if st.sidebar.button("➕ Add Subject") and new_sub:
         "chapters": {i: {"name": f"Chapter {i}"} for i in range(1, chapters+1)}
     }
     st.session_state.selected = new_sub
+
+    # RESET INPUT FIELDS
+    st.session_state.sub_input = ""
+    st.session_state.chap_input = 1
+
     st.rerun()
+
+# ---------------- STUDY LOG IN SIDEBAR ----------------
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📝 Study Log")
+
+log_date = st.sidebar.date_input("Date", key="log_date")
+log_sub = st.sidebar.selectbox("Subject", list(st.session_state.subjects.keys()) if st.session_state.subjects else [""], key="log_sub")
+log_text = st.sidebar.text_input("What studied", key="log_text")
+
+if st.sidebar.button("Add Log"):
+    new = pd.DataFrame([[log_date, log_sub, log_text]], columns=["Date","Subject","Study"])
+    st.session_state.log = pd.concat([st.session_state.log,new], ignore_index=True)
+
+    # RESET LOG INPUTS
+    st.session_state.log_text = ""
 
 # ---------------- MAIN ----------------
 st.title("🚀 Study Planner")
@@ -110,27 +129,12 @@ if selected_subject:
     eff = (total_eff / data["total"]) * 100
     st.success(f"🧠 Understanding: {round(eff,1)}%")
 
-# ---------------- STUDY LOG ----------------
+# ---------------- TABLE VIEW ----------------
 st.markdown("---")
-st.header("📝 Study Log")
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    d = st.date_input("Date")
-with col2:
-    s = st.selectbox("Subject", list(st.session_state.subjects.keys()) if st.session_state.subjects else [""])
-with col3:
-    t = st.text_input("What studied")
-
-if st.button("Add Log"):
-    new = pd.DataFrame([[d,s,t]], columns=["Date","Subject","Study"])
-    st.session_state.log = pd.concat([st.session_state.log,new], ignore_index=True)
-    st.toast("🔥 Progress saved!")
-
+st.header("📊 Study History")
 st.dataframe(st.session_state.log)
 
 # ---------------- RESET ----------------
 if st.button("Reset All"):
     st.session_state.clear()
     st.rerun()
-
