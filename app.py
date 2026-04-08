@@ -1,95 +1,122 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
+from datetime import date
 
-st.set_page_config(page_title="Study Planner", layout="wide")
+st.set_page_config(page_title="Study Planner Pro", layout="wide")
 
-# ---------------- POPUP ----------------
-if "consent" not in st.session_state:
-    st.session_state.consent = False
+# ---------------- LOGIN SYSTEM ----------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-if not st.session_state.consent:
-    st.title("Welcome to Study Planner")
-    agree = st.checkbox("I promise I will be honest with my study tracking")
-    if st.button("Continue"):
-        st.session_state.consent = True
+if not st.session_state.logged_in:
+    st.title("🔐 Login to Study Planner")
+    username = st.text_input("Enter Username")
+    if st.button("Login"):
+        if username:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.rerun()
     st.stop()
+
+# ---------------- THEME ----------------
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+if st.sidebar.button("🌗 Toggle Theme"):
+    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
 
 # ---------------- COUNTDOWN ----------------
 board_date = date(date.today().year + (1 if date.today().month > 2 else 0), 2, 1)
 days_left = (board_date - date.today()).days
 st.sidebar.title("⏳ Countdown")
-st.sidebar.write(f"Days left till boards: {days_left}")
+st.sidebar.write(f"Days left: {days_left}")
 
-# ---------------- SUBJECT INPUT ----------------
-st.title("📚 Class 12 Study Planner")
+st.title(f"🚀 Study Planner - {st.session_state.username}")
 
+# ---------------- DATA ----------------
 if "subjects" not in st.session_state:
     st.session_state.subjects = {}
 
+# ---------------- ADD SUBJECT ----------------
 with st.sidebar:
     st.header("Add Subject")
     subject_name = st.text_input("Subject Name")
-    total_chapters = st.number_input("Total Chapters", min_value=1, step=1)
-    completed = st.number_input("Chapters Completed", min_value=0, step=1)
+    total_chapters = st.number_input("Total Chapters", min_value=1)
 
     if st.button("Add Subject"):
         if subject_name:
             st.session_state.subjects[subject_name] = {
                 "total": total_chapters,
-                "completed": completed,
-                "chapters": {i: {"rev": [False, False, False]} for i in range(1, total_chapters+1)}
+                "chapters": {i: {"name": f"Chapter {i}", "rev": [False, False, False]} for i in range(1, total_chapters+1)}
             }
 
 # ---------------- TRACKING ----------------
 for sub, data in st.session_state.subjects.items():
-    st.subheader(f"{sub}")
-    progress = data["completed"] / data["total"] if data["total"] else 0
+    st.markdown(f"## ✨ {sub}")
 
-    st.write(f"Completion: {round(progress*100,2)}%")
+    total_eff = 0
+    completed = 0
+    weak_chapters = []
 
-    total_effective = 0
     for ch in range(1, data["total"]+1):
-        st.write(f"Chapter {ch}")
-        cols = st.columns(3)
+        ch_data = data["chapters"][ch]
 
-        for i in range(3):
+        col1, col2, col3, col4 = st.columns([3,1,1,1])
+
+        name = col1.text_input("", value=ch_data["name"], key=f"name_{sub}_{ch}")
+        ch_data["name"] = name
+
+        rev_count = 0
+        for i, col in enumerate([col2, col3, col4]):
             key = f"{sub}_{ch}_rev{i}"
             if key not in st.session_state:
                 st.session_state[key] = False
 
-        cols[i].checkbox(f"Rev {i+1}", key=key)
+            if col.checkbox("", key=key):
+                rev_count += 1
 
-        rev_count = sum([st.session_state[f"{sub}_{ch}_rev{i}"] for i in range(3)])
+        if rev_count >= 1:
+            completed += 1
+        if rev_count < 2:
+            weak_chapters.append(name)
 
-        # effectiveness formula
-        eff = (rev_count / 3) * 0.6 + (1 if ch <= data["completed"] else 0) * 0.4
-        total_effective += eff
+        total_eff += (rev_count / 3)
 
-    overall_eff = (total_effective / data["total"]) * 100 if data["total"] else 0
-    st.success(f"Effective Understanding: {round(overall_eff,2)}%")
+    progress = completed / data["total"] if data["total"] else 0
+    st.progress(progress)
+    st.info(f"Completion: {round(progress*100,1)}%")
+
+    eff = (total_eff / data["total"]) * 100 if data["total"] else 0
+    st.success(f"Understanding: {round(eff,1)}%")
+
+    # ---------------- AI SUGGESTION ----------------
+    if weak_chapters:
+        st.warning(f"⚡ Focus on: {', '.join(weak_chapters[:3])}")
+    else:
+        st.success("🔥 All chapters strong!")
 
 # ---------------- STUDY LOG ----------------
-st.header("📝 Daily Study Log")
+st.header("📝 Study Log")
 
 if "log" not in st.session_state:
-    st.session_state.log = pd.DataFrame(columns=["Date", "Subject", "What Studied"])
+    st.session_state.log = pd.DataFrame(columns=["Date","Subject","Study"])
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    log_date = st.date_input("Date", datetime.today())
+    d = st.date_input("Date")
 with col2:
-    log_subject = st.text_input("Subject (Log)")
+    s = st.selectbox("Subject", list(st.session_state.subjects.keys()) if st.session_state.subjects else [""])
 with col3:
-    log_text = st.text_input("What did you study?")
+    t = st.text_input("What studied")
 
-if st.button("Add Log"):
-    new_row = pd.DataFrame([[log_date, log_subject, log_text]], columns=["Date", "Subject", "What Studied"])
-    st.session_state.log = pd.concat([st.session_state.log, new_row], ignore_index=True)
+if st.button("Add"):
+    new = pd.DataFrame([[d,s,t]], columns=["Date","Subject","Study"])
+    st.session_state.log = pd.concat([st.session_state.log,new], ignore_index=True)
 
 st.dataframe(st.session_state.log, use_container_width=True)
 
-# ---------------- CLEAR BUTTON ----------------
-if st.button("Reset All Data"):
+# ---------------- RESET ----------------
+if st.button("Reset All"):
     st.session_state.clear()
-    st.experimental_rerun()
+    st.rerun()
+
